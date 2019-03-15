@@ -1,0 +1,6 @@
+**/OS3/KeilMDK/
+*.afx
+*.o
+*.d
+*.crf
+*.zip
