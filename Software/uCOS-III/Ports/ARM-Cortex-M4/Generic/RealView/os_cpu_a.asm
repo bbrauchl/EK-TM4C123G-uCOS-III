@@ -269,4 +269,6 @@ OS_CPU_PendSVHandler
     CPSIE   I
     BX      LR                                                  ; Exception return will restore remaining context
 
+	ALIGN
+
     END
