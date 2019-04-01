@@ -3,14 +3,14 @@
 *                                                      uC/OS-III
 *                                                 The Real-Time Kernel
 *
-*                                  (c) Copyright 2009-2013; Micrium, Inc.; Weston, FL
+*                                  (c) Copyright 2009-2015; Micrium, Inc.; Weston, FL
 *                           All rights reserved.  Protected by international copyright laws.
 *
 *                                                  CONFIGURATION FILE
 *
 * File    : OS_CFG.H
 * By      : JJL
-* Version : V3.04.01
+* Version : V3.04.05
 *
 * LICENSING TERMS:
 * ---------------
@@ -26,7 +26,9 @@
 *           Please help us continue to provide the embedded community with the finest software available.
 *           Your honesty is greatly appreciated.
 *
-*           You can contact us at www.micrium.com, or by phone at +1 (954) 217-2036.
+*           You can find our product's user manual, API reference, release notes and
+*           more information at https://doc.micrium.com.
+*           You can contact us at www.micrium.com.
 ************************************************************************************************************************
 */
 
@@ -35,18 +37,18 @@
 
                                              /* ---------------------------- MISCELLANEOUS -------------------------- */
 #define OS_CFG_APP_HOOKS_EN             1u   /* Enable (1) or Disable (0) application specific hooks                  */
-#define OS_CFG_ARG_CHK_EN               1u   /* Enable (1) or Disable (0) argument checking                           */
-#define OS_CFG_CALLED_FROM_ISR_CHK_EN   1u   /* Enable (1) or Disable (0) check for called from ISR                   */
+#define OS_CFG_ARG_CHK_EN               0u   /* Enable (1) or Disable (0) argument checking                           */
+#define OS_CFG_CALLED_FROM_ISR_CHK_EN   0u   /* Enable (1) or Disable (0) check for called from ISR                   */
 #define OS_CFG_DBG_EN                   1u   /* Enable (1) debug code/variables                                       */
 #define OS_CFG_ISR_POST_DEFERRED_EN     0u   /* Enable (1) or Disable (0) Deferred ISR posts                          */
-#define OS_CFG_OBJ_TYPE_CHK_EN          1u   /* Enable (1) or Disable (0) object type checking                        */
-#define OS_CFG_TS_EN                    1u   /* Enable (1) or Disable (0) time stamping                               */
+#define OS_CFG_OBJ_TYPE_CHK_EN          0u   /* Enable (1) or Disable (0) object type checking                        */
+#define OS_CFG_TS_EN                    0u   /* Enable (1) or Disable (0) time stamping                               */
 
-#define OS_CFG_PEND_MULTI_EN            1u   /* Enable (1) or Disable (0) code generation for multi-pend feature      */
+#define OS_CFG_PEND_MULTI_EN            0u   /* Enable (1) or Disable (0) code generation for multi-pend feature      */
 
 #define OS_CFG_PRIO_MAX                32u   /* Defines the maximum number of task priorities (see OS_PRIO data type) */
 
-#define OS_CFG_SCHED_LOCK_TIME_MEAS_EN  1u   /* Include code to measure scheduler lock time                           */
+#define OS_CFG_SCHED_LOCK_TIME_MEAS_EN  0u   /* Include code to measure scheduler lock time                           */
 #define OS_CFG_SCHED_ROUND_ROBIN_EN     0u   /* Include code for Round-Robin scheduling                               */
 #define OS_CFG_STK_SIZE_MIN            64u   /* Minimum allowable task stack size                                     */
 
@@ -65,11 +67,11 @@
                                              /* --------------------- MUTUAL EXCLUSION SEMAPHORES ------------------- */
 #define OS_CFG_MUTEX_EN                 1u   /* Enable (1) or Disable (0) code generation for MUTEX                   */
 #define OS_CFG_MUTEX_DEL_EN             0u   /*     Include code for OSMutexDel()                                     */
-#define OS_CFG_MUTEX_PEND_ABORT_EN      1u   /*     Include code for OSMutexPendAbort()                               */
+#define OS_CFG_MUTEX_PEND_ABORT_EN      0u   /*     Include code for OSMutexPendAbort()                               */
 
 
                                              /* --------------------------- MESSAGE QUEUES -------------------------- */
-#define OS_CFG_Q_EN                     0u   /* Enable (1) or Disable (0) code generation for QUEUES                  */
+#define OS_CFG_Q_EN                     1u   /* Enable (1) or Disable (0) code generation for QUEUES                  */
 #define OS_CFG_Q_DEL_EN                 0u   /*     Include code for OSQDel()                                         */
 #define OS_CFG_Q_FLUSH_EN               0u   /*     Include code for OSQFlush()                                       */
 #define OS_CFG_Q_PEND_ABORT_EN          1u   /*     Include code for OSQPendAbort()                                   */
@@ -110,10 +112,6 @@
 #define OS_CFG_TMR_DEL_EN               0u   /* Enable (1) or Disable (0) code generation for OSTmrDel()              */
 
                                              /* ------------------------------ uC/TRACE ----------------------------- */
-#define TRACE_CFG_EN                    1u   /* Enable (1) or Disable (0) uC/Trace instrumentation                    */
-#define OS_CFG_TRACE_EN 								1u   /* due to versioning issues tis is also needed to enable trace */
-#define OS_CFG_TRACE_API_ENTER_EN				1u	 /* enable logging of OS function entrances */
-#define OS_CFG_TRACE_API_EXIT_EN				1u
-
+#define TRACE_CFG_EN                    0u   /* Enable (1) or Disable (0) uC/Trace instrumentation                    */
 
 #endif

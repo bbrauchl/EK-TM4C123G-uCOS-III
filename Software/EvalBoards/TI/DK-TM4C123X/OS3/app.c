@@ -43,6 +43,7 @@
 */
 
 #include  "app_cfg.h"
+#include  <os_cfg.h>
 #include  <cpu_core.h>
 #include  <os.h>
 
@@ -104,10 +105,10 @@ static  OS_TCB   BlinkBlueTaskTCB;
 *********************************************************************************************************
 */
 
-static  void  BlinkRedTask (void  *p_arg);
-static  void  BlinkBlueTask (void  *p_arg);
+static void  BlinkRedTask (void  *p_arg);
+static void  BlinkBlueTask (void  *p_arg);
 
-static  void  AppTaskCreate (void);
+static void  AppTaskCreate (void);
 
 void InitGPIOPortF(void);
 
@@ -131,14 +132,13 @@ void InitGPIOPortF(void);
 int  main (void)
 {
     OS_ERR  err;
-
+	
+		SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
+                   SYSCTL_XTAL_16MHZ);        /* Initialize clock */
 
     CPU_IntDis();                                               /* Disable all interrupts.                              */
 
     OSInit(&err);                                               /* Init uC/OS-III.                                      */
-	
-		SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
-                   SYSCTL_XTAL_16MHZ);                                                 /* Initialize clock */
 	
 		InitGPIOPortF(); /* Initailize port F */
 	

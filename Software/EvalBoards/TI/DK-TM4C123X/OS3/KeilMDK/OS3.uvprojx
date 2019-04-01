@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>rvmdk PART_TM4C123GH6PM</Define>
               <Undefine></Undefine>
-              <IncludePath>..\;..\..\BSP;..\..\..\..\..\uC-CPU;..\..\..\..\..\uC-CPU\ARM-Cortex-M4\RealView;..\..\..\..\..\uC-LIB;..\..\..\..\..\uCOS-III\Ports\ARM-Cortex-M4\Generic\RealView;..\..\..\..\..\uCOS-III\Source</IncludePath>
+              <IncludePath>..\;..\..\BSP;..\..\..\..\..\uC-CPU;..\..\..\..\..\uC-CPU\ARM-Cortex-M4\RealView;..\..\..\..\..\uC-LIB;..\..\..\..\..\uCOS-III\Ports\ARM-Cortex-M4\Generic\RealView;..\..\..\..\..\uCOS-III\Source;..\..\..\..\..\uCOS-III\Trace\SystemView\Config;..\..\..\..\..\uCOS-III\Trace\SystemView\SEGGER;..\..\..\..\..\uCOS-III\Trace\SystemView\Sample\uCOS-III;..\..\..\..\..\uCOS-III\Trace\SystemView\Sample\uCOS-III\Config</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -423,6 +423,11 @@
               <FileType>5</FileType>
               <FilePath>..\os_cfg_app.h</FilePath>
             </File>
+            <File>
+              <FileName>os_cfg_trace.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\..\..\uCOS-III\Trace\SystemView\Sample\uCOS-III\Config\os_cfg_trace.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -442,6 +447,21 @@
               <FileName>cpu_bsp.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\BSP\cpu_bsp.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_SYSVIEW_uCOSIII.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\uCOS-III\Trace\SystemView\Sample\uCOS-III\SEGGER_SYSVIEW_uCOSIII.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_SYSVIEW.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\uCOS-III\Trace\SystemView\SEGGER\SEGGER_SYSVIEW.c</FilePath>
+            </File>
+            <File>
+              <FileName>SEGGER_RTT.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\..\..\..\uCOS-III\Trace\SystemView\SEGGER\SEGGER_RTT.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -642,6 +662,11 @@
               <FileName>os_var.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\..\..\..\uCOS-III\Source\os_var.c</FilePath>
+            </File>
+            <File>
+              <FileName>os_trace.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\..\..\..\..\uCOS-III\Source\os_trace.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -700,7 +700,7 @@ OS_OBJ_QTY  OSMutexPendAbort (OS_MUTEX  *p_mutex,
                      OS_RdyListRemove(p_tcb_owner);
                      p_tcb_owner->Prio = new_prio;              /* Lower owner's prio back                              */
 #if (defined(TRACE_CFG_EN) && (TRACE_CFG_EN > 0u))
-                     TRACE_OS_MUTEX_TASK_PRIO_DISINHERIT(p_tcb_owner, p_tcb_owner->Prio)
+                     TRACE_OS_MUTEX_TASK_PRIO_DISINHERIT(p_tcb_owner, p_tcb_owner->Prio);
 #endif
                      OS_PrioInsert(p_tcb_owner->Prio);
                      OS_RdyListInsertTail(p_tcb_owner);         /* Insert owner in ready list at new prio               */
@@ -711,7 +711,7 @@ OS_OBJ_QTY  OSMutexPendAbort (OS_MUTEX  *p_mutex,
                 case OS_TASK_STATE_DLY_SUSPENDED:
                      p_tcb_owner->Prio = new_prio;              /* Not in any pend list, change the prio                */
 #if (defined(TRACE_CFG_EN) && (TRACE_CFG_EN > 0u))
-                     TRACE_OS_MUTEX_TASK_PRIO_DISINHERIT(p_tcb_owner, p_tcb_owner->Prio)
+                     TRACE_OS_MUTEX_TASK_PRIO_DISINHERIT(p_tcb_owner, p_tcb_owner->Prio);
 #endif
                      break;
 
@@ -722,7 +722,7 @@ OS_OBJ_QTY  OSMutexPendAbort (OS_MUTEX  *p_mutex,
                      OS_PendListChangePrio(p_tcb_owner,         /* Owner is pending on another object                   */
                              new_prio);
 #if (defined(TRACE_CFG_EN) && (TRACE_CFG_EN > 0u))
-                     TRACE_OS_MUTEX_TASK_PRIO_DISINHERIT(p_tcb_owner, p_tcb_owner->Prio)
+                     TRACE_OS_MUTEX_TASK_PRIO_DISINHERIT(p_tcb_owner, p_tcb_owner->Prio);
 #endif
                      break;
 

@@ -58,7 +58,7 @@
 #include <os_type.h>
 #include <os_cpu.h>
 #if     (defined(TRACE_CFG_EN) && (TRACE_CFG_EN > 0u))
-#include <trace_os.h>
+#include <os_trace.h>
 #endif
 
 
