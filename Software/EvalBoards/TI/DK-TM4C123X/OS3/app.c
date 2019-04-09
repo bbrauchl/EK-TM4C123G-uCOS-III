@@ -49,13 +49,21 @@
 #include  <stdlib.h>
 #include  <stdint.h>
 #include  <stdbool.h>
+#include  <stdio.h>
+#include  <string.h>
 
 #include  <driverlib/sysctl.h>
 #include  <driverlib/gpio.h>
+#include  <driverlib/ssi.h>
+#include  <driverlib/interrupt.h>
 #include  <inc/hw_types.h>
 #include  <inc/hw_gpio.h>
 #include  <inc/hw_memmap.h>
+#include  <inc/hw_nvic.h>
+#include  <inc/tm4c123gh6pm.h>
 
+//#include  "lis3dh-i2c.h"
+#include  "lis3dh-spi.h"
 
 /*
 *********************************************************************************************************
@@ -77,7 +85,6 @@
 *********************************************************************************************************
 */
 
-
 /*$PAGE*/
 /*
 *********************************************************************************************************
@@ -90,6 +97,9 @@ static  OS_TCB   BlinkRedTaskTCB;
 
 static  CPU_STK  BlinkBlueTaskStk[APP_CFG_TASK_START_STK_SIZE];
 static  OS_TCB   BlinkBlueTaskTCB;
+
+static  CPU_STK  AccelTaskStk[APP_CFG_TASK_START_STK_SIZE];
+static  OS_TCB   AccelTaskTCB;
 
 /*
 *********************************************************************************************************
@@ -106,10 +116,14 @@ static  OS_TCB   BlinkBlueTaskTCB;
 
 static  void  BlinkRedTask (void  *p_arg);
 static  void  BlinkBlueTask (void  *p_arg);
+static  void  AccelTask (void  *p_arg);
 
 static  void  AppTaskCreate (void);
 
 void InitGPIOPortF(void);
+void InitGPIOPortB(void);
+
+void GPIOPortB_ISR(void);
 
 
 /*$PAGE*/
@@ -138,9 +152,12 @@ int  main (void)
     OSInit(&err);                                               /* Init uC/OS-III.                                      */
 	
 		SysCtlClockSet(SYSCTL_SYSDIV_2_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
-                   SYSCTL_XTAL_16MHZ);                                                 /* Initialize clock */
+                   SYSCTL_XTAL_16MHZ);                                                 /* Initialize clock to 80 MHz*/
+	
+		InitSSI0();
 	
 		InitGPIOPortF(); /* Initailize port F */
+		InitGPIOPortB();
 	
     Mem_Init();
 	
@@ -175,24 +192,54 @@ int  main (void)
 */
 
 static  void  BlinkRedTask (void *p_arg) {
-    OS_ERR    err_os;
-
-   (void)&p_arg;
-
-    while (DEF_ON) {
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, ~GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_1));
-        OSTimeDlyHMSM(0, 0, 0, 700, OS_OPT_TIME_HMSM_STRICT, &err_os);
-    }
+  OS_ERR    err_os;
+	
+  (void)&p_arg;
+		
+  while (DEF_ON) {
+    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, ~GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_1));
+    OSTimeDlyHMSM(0, 0, 0, 700, OS_OPT_TIME_HMSM_STRICT, &err_os);
+  }
 }
 
 static  void  BlinkBlueTask (void *p_arg) {
-    OS_ERR    err_os;
-
-   (void)&p_arg;
+  OS_ERR    err_os;
 
     while (DEF_ON) {
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, ~GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_2));
         OSTimeDlyHMSM(0, 0, 0, 400, OS_OPT_TIME_HMSM_STRICT, &err_os);
+    }
+}
+
+static  void  AccelTask (void *p_arg) {
+    OS_ERR    err_os;
+		int16_t x, y, z;
+		t_LIS3DH_settings settings = {
+			/*.adcEnabled = */false,
+				//Temperature settings
+			/*.tempEnabled = */true,
+				//Accelerometer settings
+			/*.accelSampleRate = */50, //Hz. Can be: 0,1,10,25,50,100,200,400,1600,5000 Hz
+			/*.accelRange = */2, //Max G force readable. Can be: 2, 4, 8, 16
+			/*.xAccelEnabled = */true,
+			/*.yAccelEnabled = */true,
+			/*.zAccelEnabled = */true,
+				//FIFO control settings
+			/*.fifoEnabled = */false,
+			/*.fifoThreshold = */20, //Can be 0 to 32
+			/*.fifoMode = */0, //FIFO mode.
+		};
+
+   (void)&p_arg;
+		
+		OSTaskSemSet(NULL, 0, &err_os);
+		LIS3DH_applySettings(settings);
+
+    while (DEF_ON) {
+			writeRegister(0x19, 0x21);
+			LIS3DH_read(&x, &y, &z);
+			
+			OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
     }
 }
 
@@ -241,6 +288,20 @@ static  void  AppTaskCreate (void) {
 							 (void       *) 0,
 							 (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
 							 (OS_ERR     *)&err);
+
+	OSTaskCreate((OS_TCB     *)&AccelTaskTCB,                /* Create the start task                                */
+							 (CPU_CHAR   *)"Accel. Task",
+							 (OS_TASK_PTR ) AccelTask,
+							 (void       *) 0,
+							 (OS_PRIO     ) APP_CFG_TASK_START_PRIO,
+							 (CPU_STK    *)&AccelTaskStk[0],
+							 (CPU_STK_SIZE) APP_CFG_TASK_START_STK_SIZE / 10u,
+							 (CPU_STK_SIZE) APP_CFG_TASK_START_STK_SIZE,
+							 (OS_MSG_QTY  ) 0u,
+							 (OS_TICK     ) 0u,
+							 (void       *) 0,
+							 (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR | OS_OPT_TASK_SAVE_FP), //save floating point registers
+							 (OS_ERR     *)&err);
 }
 
 
@@ -257,4 +318,30 @@ void InitGPIOPortF(void) {
 	GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_3 | GPIO_PIN_2 | GPIO_PIN_1); //Set the LEDs at outputs
 	GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_4 | GPIO_PIN_0); // set up the buttons as inputs
 	GPIOPadConfigSet(GPIO_PORTF_BASE, GPIO_PIN_4 | GPIO_PIN_0, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);  // Enable weak pullup resistor for PF4
+}
+
+void InitGPIOPortB(void) {
+	// Configure the GPIO Port F Pin 2 for output as indicators
+	SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+	while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB)){}
+		
+	GPIOPinTypeGPIOInput(GPIO_PORTB_BASE, GPIO_PIN_0); // set up the buttons as inputs
+	GPIOPadConfigSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD);  // Enable weak pullup resistor for PF4
+	GPIOIntRegister(GPIO_PORTB_BASE, GPIOPortB_ISR);
+		
+	IntPrioritySet(INT_GPIOF, 0x20); // allow OS interrupts to have higher priority
+		
+	GPIOIntTypeSet(GPIO_PORTB_BASE, GPIO_PIN_0, GPIO_RISING_EDGE); // set the interrupt type to rising edge with the light that is used in the systick
+	GPIOIntClear(GPIO_PORTB_BASE, GPIO_PIN_0); //clear any interrupts if any exist
+	GPIOIntEnable(GPIO_PORTB_BASE, GPIO_PIN_0); //enable interrupts on the port.
+}
+
+void GPIOPortB_ISR(void) {
+	OS_ERR err;
+	
+	OSIntEnter();
+	GPIOIntClear(GPIO_PORTB_BASE, GPIO_PIN_0);
+
+	OSTaskSemPost(&AccelTaskTCB, OS_OPT_POST_NO_SCHED, &err);
+	OSIntExit();
 }

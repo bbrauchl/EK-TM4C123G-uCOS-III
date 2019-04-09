@@ -423,6 +423,16 @@
               <FileType>5</FileType>
               <FilePath>..\os_cfg_app.h</FilePath>
             </File>
+            <File>
+              <FileName>lis3dh-spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\lis3dh-spi.c</FilePath>
+            </File>
+            <File>
+              <FileName>lis3dh-spi.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\lis3dh-spi.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

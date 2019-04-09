@@ -50,7 +50,7 @@
 *                                            TASK PRIORITIES
 *********************************************************************************************************
 */
-#define  APP_CFG_TASK_START_PRIO                          2u
+#define  APP_CFG_TASK_START_PRIO                          3u
 
 
 /*
