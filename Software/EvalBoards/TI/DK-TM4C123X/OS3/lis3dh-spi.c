@@ -24,10 +24,6 @@
 #include  <os.h>
 
 #include "lis3dh-spi.h"
-	
-#define LIS3DH_DATA_WRITE  0x00
-#define LIS3DH_DATA_READ   0x80
-#define LIS3DH_DATA_RW_INC 0x40
 
 void InitSSI0(void) {
 		OS_ERR err;
@@ -72,7 +68,7 @@ void InitSSI0(void) {
 		
 		//enable TXRIS after transmission interrupt mode
 		//This means where will be an interrupt every time the transmission finishes
-		//HWREG(SSI0_BASE + SSI_O_CR1) |= SSI_CR1_EOT;
+		HWREG(SSI0_BASE + SSI_O_CR1) |= SSI_CR1_EOT;
 			
 		SSIIntEnable(SSI0_BASE, SSI_TXFF | SSI_RXFF);
 			
@@ -98,32 +94,31 @@ void InitSSI0(void) {
 void writeRegister(uint32_t rAddress, uint32_t data) { //wrapper for the arduino function
   OS_ERR    err_os;
 	struct ssi_message_t wMsg;
-	uint32_t wData[3];
+	uint32_t wData[2];
 	
-	wData[0] = LIS3DH_slave_address | LIS3DH_DATA_WRITE;
-	wData[1] = rAddress;
-	wData[2] = data;
+	wData[0] = rAddress | LIS3DH_DATA_WRITE;
+	wData[1] = data;
 	
 	wMsg.data = wData;
-	wMsg.length = 3;
-	wMsg.rThread = OSTCBCurPtr;
+	wMsg.length = 2;
+	wMsg.rThread = NULL;
 	OSQPost(&q_SSI0receivedMessage, (void *)&wMsg, sizeof(struct ssi_message_t),
 							OS_OPT_POST_FIFO, &err_os);
 	
 	//call for processing
 	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NONE, &err_os);
+	//need some way to communicate that we dont want to be woken
 }
 
 uint32_t readRegister(uint32_t rAddress) { //wrapper for the arduino function
   OS_ERR    err_os;
 	struct ssi_message_t rMsg;
-	uint32_t rData[3];
+	uint32_t rData[2];
 	
-	rData[0] = LIS3DH_slave_address | LIS3DH_DATA_READ;
-	rData[1] = rAddress;
+	rData[0] = rAddress | LIS3DH_DATA_READ;
 	
 	rMsg.data = rData;
-	rMsg.length = 3;
+	rMsg.length = 2;
 	rMsg.rThread = OSTCBCurPtr;
 	OSTaskSemSet(&SSI0SpoolTaskTCB, 0, &err_os);
 	OSQPost(&q_SSI0receivedMessage, (void *)&rMsg, sizeof(struct ssi_message_t),
@@ -208,7 +203,10 @@ void LIS3DH_applySettings(t_LIS3DH_settings settings) {
 	writeRegister(LIS3DH_CTRL_REG4, dataToWrite);
 	
 	//enable data ready interrupts on int1
-	writeRegister(LIS3DH_CTRL_REG3, 0x10);
+	writeRegister(LIS3DH_CTRL_REG3, 0x50);
+	
+	//Interrupt 1 is latched
+	writeRegister(LIS3DH_CTRL_REG5, 0x08);
 }
 
 //function to read all of the axies at once.
@@ -219,13 +217,12 @@ void LIS3DH_read(int16_t *x, int16_t *y, int16_t *z) {
 	
   OS_ERR    err_os;
 	struct ssi_message_t rMsg;
-	uint32_t rData[8];
+	uint32_t rData[7];
 	
-	rData[0] = LIS3DH_slave_address | LIS3DH_DATA_READ;
-	rData[1] = LIS3DH_INCREMENT_ADDRESS_MASK | LIS3DH_OUT_X_L;
+	rData[0] = LIS3DH_OUT_X_L | LIS3DH_DATA_READ | LIS3DH_INCREMENT_ADDRESS_MASK;
 	
 	rMsg.data = rData;
-	rMsg.length = 8;
+	rMsg.length = 7;
 	rMsg.rThread = OSTCBCurPtr;
 	OSTaskSemSet(&SSI0SpoolTaskTCB, 0, &err_os);
 	OSQPost(&q_SSI0receivedMessage, (void *)&rMsg, sizeof(struct ssi_message_t),
@@ -234,9 +231,9 @@ void LIS3DH_read(int16_t *x, int16_t *y, int16_t *z) {
 	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NONE, &err_os);
 	OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
 	
-	*x = (int16_t)(rData[2] | rData[3] << 8);
-	*y = (int16_t)(rData[4] | rData[5] << 8);	
-	*z = (int16_t)(rData[6] | rData[7] << 8);
+	*x = (int16_t)(rData[1] | rData[2] << 8);
+	*y = (int16_t)(rData[3] | rData[4] << 8);	
+	*z = (int16_t)(rData[5] | rData[6] << 8);
 }
 
 static  void  SSI0SpoolTask (void *p_arg) {
@@ -264,7 +261,7 @@ static  void  SSI0SpoolTask (void *p_arg) {
 		
 		//aquire lock
 		OSMutexPend(&m_SSI0Lock, 0, OS_OPT_PEND_BLOCKING, NULL, &err);
-		SSIIntDisable(SSI0_BASE, SSI_TXFF | SSI_RXFF);
+		SSIIntDisable(SSI0_BASE, SSI_RXFF);
 		//receiving data loop
 		while(DEF_ON) {
 			//check if the current queue is empty. If so, load next item
@@ -290,14 +287,17 @@ static  void  SSI0SpoolTask (void *p_arg) {
 			
 			//check if it is the last element of the set
 			if (receivingDataptr - receivingStruct->data == receivingStruct->length) {
-				//when the data is done, it needs to be sent to the calling task
-				OSTaskQPost(receivingStruct->rThread, (void *)receivingStruct, 
-											sizeof(struct ssi_message_t), OS_OPT_POST_FIFO, &err);
+				//only wake a thread if it passed its TCB
+				if (receivingStruct->rThread) {
+					//when the data is done, it needs to be sent to the calling task
+					OSTaskQPost(receivingStruct->rThread, (void *)receivingStruct, 
+												sizeof(struct ssi_message_t), OS_OPT_POST_FIFO, &err);
 				
-				// If there was an error, try just waking the task. The task can either continue execution
-				// and check for a message for when data is complete or will be waked when the data is ready.
-				if(err) {
-					OSTaskSemPost(receivingStruct->rThread, OS_OPT_POST_NONE, &err);
+					// If there was an error, try just waking the task. The task can either continue execution
+					// and check for a message for when data is complete or will be waked when the data is ready.
+					if(err) {
+						OSTaskSemPost(receivingStruct->rThread, OS_OPT_POST_NONE, &err);
+					}
 				}
 				
 				//de-reference the data structure for next time
@@ -354,8 +354,8 @@ void SSI0_OSHandler(void) {
 	
 	OSIntEnter();
 	
-	SSIIntClear(SSI0_BASE, SSI_TXFF | SSI_RXFF); //clear the intterupt flag
- 	SSIIntDisable(SSI0_BASE, SSI_TXFF | SSI_RXFF);
+	SSIIntClear(SSI0_BASE, SSI_RXFF); //clear the intterupt flag
+ 	SSIIntDisable(SSI0_BASE, SSI_RXFF);
 
 	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NO_SCHED, &err);
 	OSIntExit();

@@ -46,9 +46,10 @@
 #define LIS3DH_TIME_LATENCY 0x3C
 #define LIS3DH_TIME_WINDOW 0x3D
 
-#define LIS3DH_INCREMENT_ADDRESS_MASK 0x80
+#define LIS3DH_INCREMENT_ADDRESS_MASK 0x40
 
-#define LIS3DH_slave_address 0x19 //7 bit address
+#define LIS3DH_DATA_WRITE  0x00
+#define LIS3DH_DATA_READ   0x80
 
 static  CPU_STK  SSI0SpoolTaskStk[APP_CFG_TASK_START_STK_SIZE];
 static  OS_TCB   SSI0SpoolTaskTCB;

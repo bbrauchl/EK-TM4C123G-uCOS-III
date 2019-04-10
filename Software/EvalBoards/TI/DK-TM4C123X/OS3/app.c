@@ -215,11 +215,11 @@ static  void  AccelTask (void *p_arg) {
     OS_ERR    err_os;
 		int16_t x, y, z;
 		t_LIS3DH_settings settings = {
-			/*.adcEnabled = */false,
+			/*.adcEnabled = */true,
 				//Temperature settings
 			/*.tempEnabled = */true,
 				//Accelerometer settings
-			/*.accelSampleRate = */50, //Hz. Can be: 0,1,10,25,50,100,200,400,1600,5000 Hz
+			/*.accelSampleRate = */1600, //Hz. Can be: 0,1,10,25,50,100,200,400,1600,5000 Hz
 			/*.accelRange = */2, //Max G force readable. Can be: 2, 4, 8, 16
 			/*.xAccelEnabled = */true,
 			/*.yAccelEnabled = */true,
@@ -236,7 +236,6 @@ static  void  AccelTask (void *p_arg) {
 		LIS3DH_applySettings(settings);
 
     while (DEF_ON) {
-			writeRegister(0x19, 0x21);
 			LIS3DH_read(&x, &y, &z);
 			
 			OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
