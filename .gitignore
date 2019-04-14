@@ -1,4 +1,8 @@
 **/OS3/KeilMDK/Flash/*
+**/OS3/KeilMDK/List/*
+**/OS3/KeilMDK/RTE/*
+*.Bryan
+*.scvd
 *.afx
 *.o
 *.d
