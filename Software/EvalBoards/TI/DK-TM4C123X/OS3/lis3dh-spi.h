@@ -54,8 +54,9 @@
 static  CPU_STK  SSI0SpoolTaskStk[APP_CFG_TASK_START_STK_SIZE];
 static  OS_TCB   SSI0SpoolTaskTCB;
 
-static  OS_Q		 q_SSI0receivedMessage;
-static  OS_MUTEX m_SSI0Lock;
+static  OS_Q		    q_SSI0Messages;
+static  OS_FLAG_GRP f_SSI0Events;
+static  OS_MUTEX    m_SSI0Lock;
 
 struct ssi_message_t {
 	//include TCB block of thread that should be returned to

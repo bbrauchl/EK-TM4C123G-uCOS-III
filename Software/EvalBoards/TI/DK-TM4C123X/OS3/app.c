@@ -56,10 +56,14 @@
 #include  <driverlib/gpio.h>
 #include  <driverlib/ssi.h>
 #include  <driverlib/interrupt.h>
+#include  <driverlib/uart.h>
+#include  <driverlib/pin_map.h>
+#include  <utils/uartstdio.h>
 #include  <inc/hw_types.h>
 #include  <inc/hw_gpio.h>
 #include  <inc/hw_memmap.h>
 #include  <inc/hw_nvic.h>
+#include  <inc/hw_uart.h>
 #include  <inc/tm4c123gh6pm.h>
 
 //#include  "lis3dh-i2c.h"
@@ -119,6 +123,8 @@ static  void  BlinkBlueTask (void  *p_arg);
 static  void  AccelTask (void  *p_arg);
 
 static  void  AppTaskCreate (void);
+
+void InitConsole(void);
 
 void InitGPIOPortF(void);
 void InitGPIOPortB(void);
@@ -219,7 +225,7 @@ static  void  AccelTask (void *p_arg) {
 				//Temperature settings
 			/*.tempEnabled = */true,
 				//Accelerometer settings
-			/*.accelSampleRate = */1600, //Hz. Can be: 0,1,10,25,50,100,200,400,1600,5000 Hz
+			/*.accelSampleRate = */50, //Hz. Can be: 0,1,10,25,50,100,200,400,1600,5000 Hz
 			/*.accelRange = */2, //Max G force readable. Can be: 2, 4, 8, 16
 			/*.xAccelEnabled = */true,
 			/*.yAccelEnabled = */true,
@@ -232,14 +238,15 @@ static  void  AccelTask (void *p_arg) {
 
    (void)&p_arg;
 		
-		OSTaskSemSet(NULL, 0, &err_os);
+		InitConsole();
+		OSTaskSemSet(NULL, 1, &err_os);
 		LIS3DH_applySettings(settings);
 
     while (DEF_ON) {
+			OSTaskSemPend(100, OS_OPT_PEND_BLOCKING, NULL, &err_os);
 			LIS3DH_read(&x, &y, &z);
-			
-			OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
-    }
+			UARTprintf("%d,\t%d,\t%d\n", x, y, z);
+		}
 }
 
 /*
@@ -303,6 +310,31 @@ static  void  AppTaskCreate (void) {
 							 (OS_ERR     *)&err);
 }
 
+void InitConsole(void)
+{
+    // Enable GPIO port A which is used for UART0 pins.
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+	
+		SysCtlDelay(3);//added to prevent hard fault
+	
+    // Configure the pin muxing for UART0 functions on port A0 and A1.
+    GPIOPinConfigure(GPIO_PA0_U0RX);
+    GPIOPinConfigure(GPIO_PA1_U0TX);
+
+    // Enable UART0 so that we can configure the clock.
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+   
+		SysCtlDelay(3);//added to prevent hard fault
+
+    // Use the internal 16MHz oscillator as the UART clock source.
+    UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
+
+		// Select the alternate (UART) function for these pins.   
+    GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+    // Initialize the UART for console I/O. 9600 BAUD
+    UARTStdioConfig(0, 9600, 16000000);
+}
 
 void InitGPIOPortF(void) {
 	// Configure the GPIO Port F Pin 2 for output as indicators

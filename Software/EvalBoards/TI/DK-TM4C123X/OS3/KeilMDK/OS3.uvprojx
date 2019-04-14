@@ -453,6 +453,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\BSP\cpu_bsp.c</FilePath>
             </File>
+            <File>
+              <FileName>uartstdio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\BSP\utils\uartstdio.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

@@ -19,7 +19,7 @@
 #include "utils/uartstdio.h"
 #include "inc/tm4c123gh6pm.h"
 
-#include  "app_cfg.h"
+#include  <app_cfg.h>
 #include  <cpu_core.h>
 #include  <os.h>
 
@@ -53,7 +53,7 @@ void InitSSI0(void) {
 												SysCtlClockGet(),	//Clock rate of the SSI module
 												SSI_FRF_MOTO_MODE_3, //Motorola spi format, clock phase second edge, clock idle high
 												SSI_MODE_MASTER, //master mode
-												2000000, //2 MHz transfer
+												10000000, //10 MHz transfer
 												8); // 8 bits per frame
 												
 		
@@ -68,6 +68,11 @@ void InitSSI0(void) {
 		
 		//enable TXRIS after transmission interrupt mode
 		//This means where will be an interrupt every time the transmission finishes
+			
+		/*******************************************************************************
+			ERRATA NOTE: this interrupt does not latch and the flag will not be visible
+			in the SSI interrupt resgisters, so it cannot be checked for in the ISR
+			******************************************************************************/
 		HWREG(SSI0_BASE + SSI_O_CR1) |= SSI_CR1_EOT;
 			
 		SSIIntEnable(SSI0_BASE, SSI_TXFF | SSI_RXFF);
@@ -89,6 +94,13 @@ void InitSSI0(void) {
 							 
 		//initalize a lock for the SSI hardware
 		OSMutexCreate(&m_SSI0Lock, "SSI0 Lock", &err);
+		
+		//initalize event flags for the SSI
+		OSFlagCreate(&f_SSI0Events, "SSI0 Events", 0x00, &err);
+							 
+		//initalize message queue for SPI messages
+		OSQCreate(&q_SSI0Messages, "SSI0 receive", 10, &err);
+		OSQFlush(&q_SSI0Messages, &err);
 }
 
 void writeRegister(uint32_t rAddress, uint32_t data) { //wrapper for the arduino function
@@ -102,12 +114,11 @@ void writeRegister(uint32_t rAddress, uint32_t data) { //wrapper for the arduino
 	wMsg.data = wData;
 	wMsg.length = 2;
 	wMsg.rThread = NULL;
-	OSQPost(&q_SSI0receivedMessage, (void *)&wMsg, sizeof(struct ssi_message_t),
+	OSQPost(&q_SSI0Messages, (void *)&wMsg, sizeof(struct ssi_message_t),
 							OS_OPT_POST_FIFO, &err_os);
 	
 	//call for processing
-	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NONE, &err_os);
-	//need some way to communicate that we dont want to be woken
+	//OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NONE, &err_os);
 }
 
 uint32_t readRegister(uint32_t rAddress) { //wrapper for the arduino function
@@ -121,10 +132,9 @@ uint32_t readRegister(uint32_t rAddress) { //wrapper for the arduino function
 	rMsg.length = 2;
 	rMsg.rThread = OSTCBCurPtr;
 	OSTaskSemSet(&SSI0SpoolTaskTCB, 0, &err_os);
-	OSQPost(&q_SSI0receivedMessage, (void *)&rMsg, sizeof(struct ssi_message_t),
+	OSQPost(&q_SSI0Messages, (void *)&rMsg, sizeof(struct ssi_message_t),
 							OS_OPT_POST_FIFO, &err_os);
 	
-	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NONE, &err_os);
 	OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
 	//return last thing recieved
 	return rMsg.data[rMsg.length-1];
@@ -133,6 +143,10 @@ uint32_t readRegister(uint32_t rAddress) { //wrapper for the arduino function
 //Code ripped from the arduino library. writeRegister is used by the code the above wrapper makes the code below function as intended
 void LIS3DH_applySettings(t_LIS3DH_settings settings) {	
 	uint8_t dataToWrite = 0; //Temporary variable
+	
+	//total part reset
+	writeRegister(LIS3DH_CTRL_REG5, 0x80);
+	
 	//Build TEMP_CFG_REG
 	dataToWrite = 0; //Start Fresh!
 	dataToWrite = ((settings.tempEnabled & 0x01) << 6) | ((settings.adcEnabled & 0x01) << 7);
@@ -205,11 +219,11 @@ void LIS3DH_applySettings(t_LIS3DH_settings settings) {
 	//enable data ready interrupts on int1
 	writeRegister(LIS3DH_CTRL_REG3, 0x50);
 	
-	//Interrupt 1 is latched
+	//Interrupt 1 is latched **Is this needed??**
 	writeRegister(LIS3DH_CTRL_REG5, 0x08);
 }
 
-//function to read all of the axies at once.
+//function to read all of the axis at once.
 void LIS3DH_read(int16_t *x, int16_t *y, int16_t *z) {
   //specify that we are writing (a register address) to the
   //slave device
@@ -225,7 +239,7 @@ void LIS3DH_read(int16_t *x, int16_t *y, int16_t *z) {
 	rMsg.length = 7;
 	rMsg.rThread = OSTCBCurPtr;
 	OSTaskSemSet(&SSI0SpoolTaskTCB, 0, &err_os);
-	OSQPost(&q_SSI0receivedMessage, (void *)&rMsg, sizeof(struct ssi_message_t),
+	OSQPost(&q_SSI0Messages, (void *)&rMsg, sizeof(struct ssi_message_t),
 							OS_OPT_POST_FIFO, &err_os);
 	
 	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NONE, &err_os);
@@ -236,114 +250,104 @@ void LIS3DH_read(int16_t *x, int16_t *y, int16_t *z) {
 	*z = (int16_t)(rData[5] | rData[6] << 8);
 }
 
+void SSI0EmptyFIFO(uint32_t *ptr) {
+	
+}
+
 static  void  SSI0SpoolTask (void *p_arg) {
   OS_ERR    err;
-	static struct ssi_message_t *sendingStruct = NULL, *receivingStruct = NULL;
+	static struct ssi_message_t *dataStruct = NULL;
 	static uint32_t *sendingDataptr = NULL, *receivingDataptr = NULL;
-	static OS_Q q_SSI0Internal;
 	static OS_MSG_SIZE msg_size;
+	static OS_FLAGS flgs;
+	CPU_SR_ALLOC();
 		
 	(void)&p_arg;
-	//create internal queue for spooling management	
-	//make the Queue reasonably long (10 items)
-	OSTaskSemSet(&SSI0SpoolTaskTCB, 0, &err);
-	OSQCreate(&q_SSI0receivedMessage, "SSI0 receive", 10, &err);
-	OSQFlush(&q_SSI0receivedMessage, &err);
-	OSQCreate(&q_SSI0Internal, "SSI0 Internal", 10, &err);
-	OSQFlush(&q_SSI0Internal, &err);
-		
-    
+	
+	//clear all event flags
+	OSFlagPost(&f_SSI0Events, 0xFF, OS_OPT_POST_FLAG_CLR, &err);
+	
 	while(DEF_ON) {
-		//release lock before going to sleep
+		//release lock on SSI for other tasks
 		OSMutexPost(&m_SSI0Lock, OS_OPT_POST_NONE, &err);
-		//suspend self when work is finished. On interrupt and write this will be woken up
-		OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err);
 		
-		//aquire lock
+		//wait for data to start the SPI transper
+		dataStruct = OSQPend(&q_SSI0Messages, 0, OS_OPT_PEND_BLOCKING, &msg_size, NULL, &err);
+		sendingDataptr = dataStruct->data;
+		receivingDataptr = dataStruct->data;
+		
+		//get the lock for the SSI0 hardware
 		OSMutexPend(&m_SSI0Lock, 0, OS_OPT_PEND_BLOCKING, NULL, &err);
+		
+		CPU_CRITICAL_ENTER();
 		SSIIntDisable(SSI0_BASE, SSI_RXFF);
-		//receiving data loop
+		
 		while(DEF_ON) {
-			//check if the current queue is empty. If so, load next item
-			if(receivingStruct == NULL) {
-				//attempt to load another message from the queue
-				receivingStruct = (struct ssi_message_t*)OSQPend(&q_SSI0Internal,
-															0, OS_OPT_PEND_NON_BLOCKING, &msg_size, NULL, &err);
-				
-				//if there is an error, task has nowhere to put data, ending receiver processing
-				if(err) {
-					break;
-				}
-				//set the pointer
-				receivingDataptr = receivingStruct->data;
-			}
-			
+			//if we are able to read from hardware
 			if(SSIDataGetNonBlocking(SSI0_BASE, receivingDataptr)) {
 				receivingDataptr++;
 			}
-			else {
-				break;
+			
+			//check if there is still data to send
+			if(sendingDataptr - dataStruct->data < dataStruct->length) {
+				if(SSIDataPutNonBlocking(SSI0_BASE, *sendingDataptr)) {
+					sendingDataptr++;
+					//always continue if there is data left
+					continue;
+				}
 			}
 			
-			//check if it is the last element of the set
-			if (receivingDataptr - receivingStruct->data == receivingStruct->length) {
-				//only wake a thread if it passed its TCB
-				if (receivingStruct->rThread) {
-					//when the data is done, it needs to be sent to the calling task
-					OSTaskQPost(receivingStruct->rThread, (void *)receivingStruct, 
-												sizeof(struct ssi_message_t), OS_OPT_POST_FIFO, &err);
-				
-					// If there was an error, try just waking the task. The task can either continue execution
-					// and check for a message for when data is complete or will be waked when the data is ready.
-					if(err) {
-						OSTaskSemPost(receivingStruct->rThread, OS_OPT_POST_NONE, &err);
-					}
-				}
-				
-				//de-reference the data structure for next time
-				receivingStruct = NULL;
+			//Either all data has sent or the TX FIFO is full
+			//Empty the receive FIFO
+			while(SSIDataGetNonBlocking(SSI0_BASE, receivingDataptr)) {
+				receivingDataptr++;
+			}
+			
+			//enable the interrupt that will wake us.
+			//this must be disabled during processing or else an interrupt lock can occur because the data
+			//never gets read from the hardware in the ISR. once the task is done reading it can be re-enabled
+			//due to the errata in the SSI hardware, this should only be re-enabled when there is still data to send.
+			//Otherwise we should wait for and EOT event. (This Errata is stupid)
+			if(sendingDataptr - dataStruct->data < dataStruct->length)
+				SSIIntEnable(SSI0_BASE, SSI_RXFF);
+			
+			//We have done all the work we can. sleep until there is an event to allow other tasks to run.
+			//valid events: RX buffer half or more full (RXFF) and TX end of transmission (TXFF) **SEE ERATTA MASK**
+			CPU_CRITICAL_EXIT(); //enter critical section for pend operation, here we are purposly allowing the scheduler to run
+			flgs = OSFlagPend(&f_SSI0Events, SSI_TXFF | SSI_RXFF, 1, OS_OPT_PEND_FLAG_SET_ANY | OS_OPT_PEND_FLAG_CONSUME | OS_OPT_PEND_BLOCKING, NULL, &err);
+			if(err) {
+				//if we got a timeout, we will assume that the transmission finished because of errata
+				break;
+			}
+			CPU_CRITICAL_ENTER(); //re-enter critical section to continue to protect
+			
+			//check the flags that caused us to wake up
+			if(flgs & SSI_TXFF) {
+				// Break out of trasmit loop on end of transmission event
+				break;
 			}
 		}
 		
-		//sending data loop
-		while(DEF_ON) {
-			//check if the current queue is empty. If so, load next item
-			if(sendingStruct == NULL) {
-				//attempt to load another message from the queue
-				sendingStruct = (struct ssi_message_t*)OSQPend(&q_SSI0receivedMessage,
-															0, OS_OPT_PEND_NON_BLOCKING, &msg_size, NULL, &err);
-				//if an item was sccessfully loaded, forwared it to the receiver logic
-				if(!err) {
-				  //set the pointer
-				  sendingDataptr = sendingStruct->data;
-					//pass the structure to the internal queue
-					OSQPost(&q_SSI0Internal, sendingStruct, msg_size, OS_OPT_POST_FIFO, &err);
-				}
-				else {
-					break;
-				}
-			}
-			
-			//try to put normal data in
-			if(SSIDataPutNonBlocking(SSI0_BASE, *sendingDataptr)) {
-				sendingDataptr++;
-			}
-			else {
-				break;
-			}
-			
-			//check if it is the last element of the set
-			if (sendingDataptr - sendingStruct->data == sendingStruct->length - 1) {
-				if(SSIAdvDataPutFrameEndNonBlocking(SSI0_BASE, *sendingDataptr)) {
-					//we have finished sending the Queue
-					sendingStruct = NULL;
-				}
-				//if we failed to put the last item in the queue is full so break
-				else
-					break;
+		//exit spooling critical section
+		CPU_CRITICAL_EXIT();
+		
+		//Empty the receive FIFO
+		while(SSIDataGetNonBlocking(SSI0_BASE, receivingDataptr)) {
+			receivingDataptr++;
+		}
+		
+		//sanity check
+		if(receivingDataptr - dataStruct->data == dataStruct->length) {
+			// dont try to wake threads that passed no TCB
+			if(dataStruct->rThread) {
+				//signal the thread associated to the message
+				OSTaskSemPost(dataStruct->rThread, OS_OPT_POST_NONE, &err);
+				//no need to invalidate struct, it will get overwritten on new loop.
 			}
 		}
-	SSIIntEnable(SSI0_BASE, SSI_TXFF | SSI_RXFF);
+		else {
+			while(DEF_ON){__asm("NOP \n");}
+		}
   }
 }
 
@@ -354,9 +358,16 @@ void SSI0_OSHandler(void) {
 	
 	OSIntEnter();
 	
-	SSIIntClear(SSI0_BASE, SSI_RXFF); //clear the intterupt flag
- 	SSIIntDisable(SSI0_BASE, SSI_RXFF);
-
-	OSTaskSemPost(&SSI0SpoolTaskTCB, OS_OPT_POST_NO_SCHED, &err);
+	//the TXFF interrupt acts very odd, it will not latch so check for absence of any set interrupt flags.
+	if (!SSIIntStatus(SSI0_BASE, true)) {
+		OSFlagPost(&f_SSI0Events, SSI_TXFF, OS_OPT_POST_FLAG_SET, &err);
+	}
+	else {
+		//turn off interrupt so it is possible to return without processing
+		SSIIntDisable(SSI0_BASE, SSI_RXFF);
+		OSFlagPost(&f_SSI0Events, SSI_RXFF, OS_OPT_POST_FLAG_SET, &err);
+	}
+	SSIIntClear(SSI0_BASE, SSI_TXFF | SSI_RXFF);
+	
 	OSIntExit();
 }
