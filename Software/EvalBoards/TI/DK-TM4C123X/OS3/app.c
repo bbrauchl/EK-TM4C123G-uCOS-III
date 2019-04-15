@@ -178,10 +178,18 @@ static  void  BlinkRedTask (void *p_arg) {
     OS_ERR    err_os;
 
    (void)&p_arg;
+		
+		OSTaskSemSet(&BlinkRedTaskTCB, 0, &err_os); //set the inital count of the task semaphore to 0
 
     while (DEF_ON) {
+				//toggle red LED
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, ~GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_1));
-        OSTimeDlyHMSM(0, 0, 0, 700, OS_OPT_TIME_HMSM_STRICT, &err_os);
+				//wait for 500ms
+        OSTimeDlyHMSM(0, 0, 0, 500, OS_OPT_TIME_HMSM_STRICT, &err_os);
+				//signal other task to toggle LED
+				OSTaskSemPost(&BlinkBlueTaskTCB, OS_OPT_POST_NONE, &err_os);
+				//wait for other task to signal us to toggle our LED
+        OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
     }
 }
 
@@ -189,10 +197,18 @@ static  void  BlinkBlueTask (void *p_arg) {
     OS_ERR    err_os;
 
    (void)&p_arg;
-
+		
+		OSTaskSemSet(NULL, 0, &err_os); //Null can be used to specify the calling task
+	
     while (DEF_ON) {
+				//wait for other task to signal us to toggle our LED
+        OSTaskSemPend(0, OS_OPT_PEND_BLOCKING, NULL, &err_os);
+				//toggle blue LED
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, ~GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_2));
-        OSTimeDlyHMSM(0, 0, 0, 400, OS_OPT_TIME_HMSM_STRICT, &err_os);
+				//wait for 500ms
+        OSTimeDlyHMSM(0, 0, 0, 500, OS_OPT_TIME_HMSM_STRICT, &err_os);
+				//signal other task to toggle LED
+				OSTaskSemPost(&BlinkRedTaskTCB, OS_OPT_POST_NONE, &err_os);
     }
 }
 
@@ -214,19 +230,19 @@ static  void  BlinkBlueTask (void *p_arg) {
 
 static  void  AppTaskCreate (void) {
 	OS_ERR  err;
-	OSTaskCreate((OS_TCB     *)&BlinkRedTaskTCB,                /* Create the start task                                */
-							 (CPU_CHAR   *)"Blink Red Task",
-							 (OS_TASK_PTR ) BlinkRedTask,
-							 (void       *) 0,
-							 (OS_PRIO     ) APP_CFG_TASK_START_PRIO,
-							 (CPU_STK    *)&BlinkRedTaskStk[0],
-							 (CPU_STK_SIZE) APP_CFG_TASK_START_STK_SIZE / 10u,
-							 (CPU_STK_SIZE) APP_CFG_TASK_START_STK_SIZE,
-							 (OS_MSG_QTY  ) 0u,
-							 (OS_TICK     ) 0u,
-							 (void       *) 0,
-							 (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),
-							 (OS_ERR     *)&err);
+	OSTaskCreate((OS_TCB     *)&BlinkRedTaskTCB,                							/* OS_TCB        *p_tcb */
+							 (CPU_CHAR   *)"Blink Red Task",															/* CPU_CHAR      *p_name */
+							 (OS_TASK_PTR ) BlinkRedTask,																	/* OS_TASK_PTR    p_task */
+							 (void       *) 0,																						/* void          *p_arg */
+							 (OS_PRIO     ) APP_CFG_TASK_START_PRIO,											/* OS_PRIO        prio */
+							 (CPU_STK    *)&BlinkRedTaskStk[0],														/* CPU_STK       *p_stk_base */
+							 (CPU_STK_SIZE) APP_CFG_TASK_START_STK_SIZE / 10u,						/* CPU_STK_SIZE   stk_limit */
+							 (CPU_STK_SIZE) APP_CFG_TASK_START_STK_SIZE,									/* CPU_STK_SIZE   stk_size */
+							 (OS_MSG_QTY  ) 0u,																						/* OS_MSG_QTY     q_size */
+							 (OS_TICK     ) 0u,																						/* OS_TICK        time_quanta */
+							 (void       *) 0,																						/* void          *p_ext */
+							 (OS_OPT      )(OS_OPT_TASK_STK_CHK | OS_OPT_TASK_STK_CLR),		/* OS_OPT         opt */
+							 (OS_ERR     *)&err);																					/* OS_ERR        *p_err */
 
 	OSTaskCreate((OS_TCB     *)&BlinkBlueTaskTCB,                /* Create the start task                                */
 							 (CPU_CHAR   *)"Blink Blue Task",
