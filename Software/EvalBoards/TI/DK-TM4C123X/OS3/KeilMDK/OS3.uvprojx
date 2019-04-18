@@ -444,11 +444,6 @@
               <FilePath>..\..\BSP\KeilMDK\cstartup.s</FilePath>
             </File>
             <File>
-              <FileName>driverlib.lib</FileName>
-              <FileType>4</FileType>
-              <FilePath>..\..\BSP\driverlib\rvmdk\driverlib.lib</FilePath>
-            </File>
-            <File>
               <FileName>cpu_bsp.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\BSP\cpu_bsp.c</FilePath>
@@ -457,6 +452,11 @@
               <FileName>uartstdio.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\..\BSP\utils\uartstdio.c</FilePath>
+            </File>
+            <File>
+              <FileName>driverlib.lib</FileName>
+              <FileType>4</FileType>
+              <FilePath>..\..\BSP\driverlib\rvmdk\driverlib.lib</FilePath>
             </File>
           </Files>
         </Group>

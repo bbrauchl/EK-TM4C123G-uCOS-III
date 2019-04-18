@@ -356,7 +356,11 @@ static  void  SSI0SpoolTask (void *p_arg) {
 void SSI0_OSHandler(void) {
 	OS_ERR err;
 	
-	OSIntEnter();
+  CPU_SR_ALLOC();
+
+  CPU_CRITICAL_ENTER();                                       /* Tell the OS that we are starting an ISR            */
+  OSIntEnter();
+  CPU_CRITICAL_EXIT();
 	
 	//the TXFF interrupt acts very odd, it will not latch so check for absence of any set interrupt flags.
 	if (!SSIIntStatus(SSI0_BASE, true)) {

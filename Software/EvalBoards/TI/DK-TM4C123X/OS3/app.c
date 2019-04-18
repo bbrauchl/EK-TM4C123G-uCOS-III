@@ -370,7 +370,12 @@ void InitGPIOPortB(void) {
 void GPIOPortB_ISR(void) {
 	OS_ERR err;
 	
-	OSIntEnter();
+  CPU_SR_ALLOC();
+
+  CPU_CRITICAL_ENTER();                                       /* Tell the OS that we are starting an ISR            */
+  OSIntEnter();
+  CPU_CRITICAL_EXIT();
+	
 	GPIOIntClear(GPIO_PORTB_BASE, GPIO_PIN_0);
 
 	OSTaskSemPost(&AccelTaskTCB, OS_OPT_POST_NO_SCHED, &err);
