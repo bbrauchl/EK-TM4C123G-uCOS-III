@@ -250,10 +250,6 @@ void LIS3DH_read(int16_t *x, int16_t *y, int16_t *z) {
 	*z = (int16_t)(rData[5] | rData[6] << 8);
 }
 
-void SSI0EmptyFIFO(uint32_t *ptr) {
-	
-}
-
 static  void  SSI0SpoolTask (void *p_arg) {
   OS_ERR    err;
 	static struct ssi_message_t *dataStruct = NULL;

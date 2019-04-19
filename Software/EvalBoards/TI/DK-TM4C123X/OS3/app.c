@@ -75,6 +75,7 @@
 *********************************************************************************************************
 */
 
+#define LIS3DH_DATA_READY 0x80
 
 /*
 *********************************************************************************************************
@@ -104,6 +105,8 @@ static  OS_TCB   BlinkBlueTaskTCB;
 
 static  CPU_STK  AccelTaskStk[APP_CFG_TASK_START_STK_SIZE];
 static  OS_TCB   AccelTaskTCB;
+
+static  OS_FLAG_GRP f_LIS3DHEvents;
 
 /*
 *********************************************************************************************************
@@ -239,11 +242,12 @@ static  void  AccelTask (void *p_arg) {
    (void)&p_arg;
 		
 		InitConsole();
-		OSTaskSemSet(NULL, 1, &err_os);
+		OSTaskSemSet(NULL, 0, &err_os);
+		OSFlagCreate(&f_LIS3DHEvents, "LIS3DH Events", 0x00, &err_os);
 		LIS3DH_applySettings(settings);
 
     while (DEF_ON) {
-			OSTaskSemPend(100, OS_OPT_PEND_BLOCKING, NULL, &err_os);
+			OSFlagPend(&f_LIS3DHEvents, LIS3DH_DATA_READY, 0, OS_OPT_PEND_FLAG_SET_ANY | OS_OPT_PEND_FLAG_CONSUME | OS_OPT_PEND_BLOCKING, NULL, &err_os);
 			LIS3DH_read(&x, &y, &z);
 			UARTprintf("%d,\t%d,\t%d\n", x, y, z);
 		}
@@ -377,7 +381,7 @@ void GPIOPortB_ISR(void) {
   CPU_CRITICAL_EXIT();
 	
 	GPIOIntClear(GPIO_PORTB_BASE, GPIO_PIN_0);
-
-	OSTaskSemPost(&AccelTaskTCB, OS_OPT_POST_NO_SCHED, &err);
+	
+	OSFlagPost(&f_LIS3DHEvents, LIS3DH_DATA_READY, OS_OPT_POST_FLAG_SET, &err);
 	OSIntExit();
 }
