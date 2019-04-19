@@ -133,7 +133,7 @@
           <Target>
             <UseTarget>1</UseTarget>
             <LoadApplicationAtStartup>1</LoadApplicationAtStartup>
-            <RunToMain>0</RunToMain>
+            <RunToMain>1</RunToMain>
             <RestoreBreakpoints>1</RestoreBreakpoints>
             <RestoreWatchpoints>1</RestoreWatchpoints>
             <RestoreMemoryDisplay>1</RestoreMemoryDisplay>
@@ -170,7 +170,7 @@
             <Capability>1</Capability>
             <DriverSelection>4097</DriverSelection>
           </Flash1>
-          <bUseTDR>0</bUseTDR>
+          <bUseTDR>1</bUseTDR>
           <Flash2>BIN\lmidk-agdi.dll</Flash2>
           <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
@@ -450,6 +450,16 @@
               <FileType>5</FileType>
               <FilePath>..\os_cfg_app.h</FilePath>
             </File>
+            <File>
+              <FileName>lis3dh-spi.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\lis3dh-spi.c</FilePath>
+            </File>
+            <File>
+              <FileName>lis3dh-spi.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\lis3dh-spi.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -469,6 +479,11 @@
               <FileName>driverlib.lib</FileName>
               <FileType>4</FileType>
               <FilePath>..\..\BSP\driverlib\rvmdk\driverlib.lib</FilePath>
+            </File>
+            <File>
+              <FileName>uartstdio.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\BSP\utils\uartstdio.c</FilePath>
             </File>
           </Files>
         </Group>
